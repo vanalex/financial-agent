@@ -1,4 +1,5 @@
 from langchain_openai import ChatOpenAI
+from langsmith import traceable
 
 
 llm = ChatOpenAI(
@@ -7,6 +8,32 @@ llm = ChatOpenAI(
 )
 
 
+def _summarize_analysis_inputs(inputs: dict) -> dict:
+    state = inputs.get("state", {})
+    return {
+        "symbols": state.get("symbols", []),
+        "market_data_count": len(state.get("market_data", [])),
+        "news_count": len(state.get("news", [])),
+        "error_count": len(state.get("errors", [])),
+    }
+
+
+def _summarize_analysis_outputs(output: dict) -> dict:
+    analysis = output.get("analysis", "")
+    return {
+        "analysis_char_count": len(analysis),
+        "has_analysis": bool(analysis),
+    }
+
+
+@traceable(
+    name="Analyze Market Node",
+    run_type="chain",
+    tags=["graph-node", "analysis"],
+    metadata={"model": "gpt-5"},
+    process_inputs=_summarize_analysis_inputs,
+    process_outputs=_summarize_analysis_outputs,
+)
 async def analyze_market(state):
 
     market_data = state["market_data"]

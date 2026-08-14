@@ -5,6 +5,7 @@ from datetime import date
 
 import aiohttp
 from dotenv import load_dotenv
+from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, Field
 
 load_dotenv()
@@ -74,6 +75,12 @@ async def _wait_for_rate_limit_slot() -> None:
         _last_request_at = time.monotonic()
 
 
+@traceable(
+    name="Alpha Vantage Global Quote",
+    run_type="tool",
+    tags=["market-data", "alpha-vantage"],
+    metadata={"provider": "alpha_vantage", "function": "GLOBAL_QUOTE"},
+)
 async def get_daily(symbol: str) -> dict:
     await _wait_for_rate_limit_slot()
 

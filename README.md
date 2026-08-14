@@ -2,13 +2,9 @@
 
 Financial Intelligent Agent is an async Python research assistant that combines market quotes, financial news, and an LLM analysis step into a single LangGraph workflow. It is designed to produce a short market research brief from recent quote data and news context.
 
-The current entry point analyzes a fixed watchlist:
+The current entry point analyzes one broad market proxy to stay within strict Alpha Vantage rate limits:
 
 - `SPY`
-- `QQQ`
-- `NVDA`
-- `AAPL`
-- `MSFT`
 
 ## Purpose
 
@@ -16,7 +12,7 @@ The project helps collect and interpret market context without manually switchin
 
 ## Features
 
-- Fetches latest global quote data from Alpha Vantage with async HTTP calls.
+- Fetches latest global quote data from Alpha Vantage with async HTTP calls. The default run uses one symbol, so it makes one Alpha Vantage request.
 - Collects recent financial market news with Tavily search using async LangChain calls.
 - Runs a LangGraph pipeline with separate nodes for market data, news, and analysis.
 - Uses OpenAI through async `langchain-openai` calls for the final market research analysis.
@@ -88,7 +84,13 @@ Fill in the required values:
 ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
 OPENAI_API_KEY=your_openai_key
 TAVILY_API_KEY=your_tavily_key
+LANGSMITH_API_KEY=your_langsmith_key
+LANGSMITH_TRACING="true"
+LANGSMITH_TRACING_V2="true"
+LANGSMITH_PROJECT="financial agent"
 ```
+
+The LangSmith variables are optional for local execution, but required if you want traces sent to LangSmith.
 
 ## Usage
 
@@ -100,16 +102,31 @@ uv run python main.py
 
 The script invokes the LangGraph workflow and prints the final LLM-generated market analysis.
 
-To analyze a different set of symbols, edit the `symbols` list in `main.py`:
+To analyze a different symbol, edit the `symbols` list in `main.py`:
 
 ```python
 result = await graph.ainvoke(
     {
-        "symbols": ["SPY", "QQQ", "AAPL"],
+        "symbols": ["QQQ"],
         "errors": [],
     }
 )
 ```
+
+Each symbol maps to one Alpha Vantage `GLOBAL_QUOTE` API request.
+
+## Tracing
+
+LangSmith tracing is added at the boundaries that are most useful for debugging and observability:
+
+- `Financial Agent Workflow` wraps the full graph invocation.
+- `Fetch Market Data Node` shows requested symbols, returned quote count, and collection errors.
+- `Alpha Vantage Global Quote` traces each symbol quote request.
+- `Fetch News Node` shows news result counts and URLs.
+- `Tavily Financial News Search` traces the news provider call.
+- `Analyze Market Node` shows evidence counts and final analysis size.
+
+The OpenAI call is made through LangChain's async `ainvoke`, so when LangSmith tracing is enabled it can appear as a child model run under the analysis node.
 
 ## Output
 

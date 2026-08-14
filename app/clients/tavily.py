@@ -1,4 +1,5 @@
 from langchain_tavily import TavilySearch
+from langsmith import traceable
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -9,6 +10,27 @@ search = TavilySearch(
 )
 
 
+def _summarize_news_output(news: list[dict]) -> dict:
+    return {
+        "article_count": len(news),
+        "articles": [
+            {
+                "title": article.get("title"),
+                "url": article.get("url"),
+                "score": article.get("score"),
+            }
+            for article in news
+        ],
+    }
+
+
+@traceable(
+    name="Tavily Financial News Search",
+    run_type="tool",
+    tags=["news", "tavily"],
+    metadata={"provider": "tavily", "topic": "news"},
+    process_outputs=_summarize_news_output,
+)
 async def get_financial_news() -> list[dict]:
 
     query = """
