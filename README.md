@@ -172,6 +172,42 @@ LangSmith tracing is added at the boundaries that are most useful for debugging 
 
 The OpenAI call is made through LangChain's async `ainvoke`, so when LangSmith tracing is enabled it can appear as a child model run under the analysis node.
 
+## Evaluations
+
+The project includes a LangSmith evaluation suite in `evals/`. The evals use
+controlled synthetic market/news examples so results do not depend on live
+Alpha Vantage or Tavily data.
+
+Create the dataset:
+
+```bash
+uv run python evals/create_dataset.py
+```
+
+Run the default model comparison:
+
+```bash
+uv run python evals/run_eval.py
+```
+
+Run one model:
+
+```bash
+uv run python evals/run_eval.py --single-model gpt-5-mini
+```
+
+The runner evaluates `app.nodes.analysis.analyze_market` directly. It does not
+use Postgres, the full LangGraph workflow, Alpha Vantage, or Tavily.
+
+Evaluators check:
+
+- required market brief sections
+- expected market themes and price/news relationships
+- absence of unsupported causal claims
+- evidence citation discipline
+- insufficient-evidence handling and disclaimer language
+- overall analytical quality using an LLM judge
+
 ## Output
 
 The final analysis asks the model to identify:

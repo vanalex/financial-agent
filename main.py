@@ -34,6 +34,8 @@ def _summarize_workflow_outputs(result: dict | None) -> dict:
         "news_count": len(result.get("news", [])),
         "error_count": len(result.get("errors", [])),
         "analysis_char_count": len(result.get("analysis", "")),
+        "has_report": bool(result.get("report")),
+        "report_path": result.get("report_path"),
     }
 
 
@@ -89,6 +91,7 @@ async def show_checkpoint(thread_id: str) -> None:
         print(f"news_count: {len(state.values.get('news', []))}")
         print(f"error_count: {len(state.values.get('errors', []))}")
         print(f"has_analysis: {bool(state.values.get('analysis'))}")
+        print(f"report_path: {state.values.get('report_path', '')}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -123,9 +126,10 @@ async def main():
         print(f"thread_id: {args.thread_id}")
         result = await run_market_analysis(args.symbols, args.thread_id)
 
-    print(
-        result.get("analysis", "No analysis is available yet.")
-    )
+    print(result.get("analysis", "No analysis is available yet."))
+
+    if report_path := result.get("report_path"):
+        print(f"\nReport saved to: {report_path}")
 
 if __name__ == '__main__':
     asyncio.run(main())

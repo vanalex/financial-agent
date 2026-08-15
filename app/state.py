@@ -17,4 +17,6 @@ class MarketState(TypedDict, total=False):
 
     report: str
 
+    report_path: str
+
     errors: list[str]

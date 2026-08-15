@@ -10,6 +10,7 @@ from app.state import MarketState
 from app.nodes.market import fetch_market_data, prepare_market_data
 from app.nodes.news import fetch_news
 from app.nodes.analysis import analyze_market
+from app.nodes.report import write_market_report
 
 load_dotenv()
 
@@ -33,6 +34,11 @@ builder.add_node(
 builder.add_node(
     "analyze_market",
     analyze_market,
+)
+
+builder.add_node(
+    "write_market_report",
+    write_market_report,
 )
 
 
@@ -73,6 +79,11 @@ builder.add_edge(
 
 builder.add_edge(
     "analyze_market",
+    "write_market_report",
+)
+
+builder.add_edge(
+    "write_market_report",
     END,
 )
 
