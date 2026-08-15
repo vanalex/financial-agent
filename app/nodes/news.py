@@ -12,7 +12,12 @@ def _summarize_news_state_inputs(inputs: dict) -> dict:
     }
 
 
-def _summarize_news_state_outputs(output: dict) -> dict:
+def _summarize_news_state_outputs(output: dict | None) -> dict:
+    if output is None:
+        return {
+            "status": "failed",
+        }
+
     return {
         "news_count": len(output.get("news", [])),
         "urls": [

@@ -18,7 +18,12 @@ def _summarize_analysis_inputs(inputs: dict) -> dict:
     }
 
 
-def _summarize_analysis_outputs(output: dict) -> dict:
+def _summarize_analysis_outputs(output: dict | None) -> dict:
+    if output is None:
+        return {
+            "has_analysis": False,
+        }
+
     analysis = output.get("analysis", "")
     return {
         "analysis_char_count": len(analysis),

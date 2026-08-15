@@ -24,16 +24,25 @@ The project helps collect and interpret market context without manually switchin
 
 The workflow is defined in `app/graph.py`:
 
-1. `fetch_market_data`
-   Retrieves quote data for each symbol using Alpha Vantage.
+1. `prepare_market_data`
+   Initializes the pending-symbol queue.
 
-2. `fetch_news`
+2. `fetch_market_data`
+   Retrieves quote data for one pending symbol using Alpha Vantage. The graph
+   loops through this node until all symbols are complete, creating a checkpoint
+   after each symbol.
+
+3. `fetch_news`
    Searches for recent financial market news focused on macroeconomic data, interest rates, technology stocks, oil, inflation, and market-moving events.
 
-3. `analyze_market`
+4. `analyze_market`
    Sends the collected market data, news, and any collection errors to an OpenAI chat model and asks for a structured market analysis.
 
 The graph state is represented by `MarketState` in `app/state.py`.
+
+The graph uses LangGraph's Postgres checkpointer. Checkpoints are stored in the
+database configured by `DATABASE_URL`, keyed by the `thread_id` passed in the
+graph config.
 
 ## Project Structure
 
@@ -72,6 +81,12 @@ Install dependencies:
 uv sync
 ```
 
+Start the local Postgres database:
+
+```bash
+docker compose up -d postgres
+```
+
 Create a local environment file:
 
 ```bash
@@ -84,6 +99,7 @@ Fill in the required values:
 ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
 OPENAI_API_KEY=your_openai_key
 TAVILY_API_KEY=your_tavily_key
+DATABASE_URL=postgresql://financial_agent:financial_agent_password@localhost:5432/financial_agent
 LANGSMITH_API_KEY=your_langsmith_key
 LANGSMITH_TRACING="true"
 LANGSMITH_TRACING_V2="true"
@@ -101,19 +117,47 @@ uv run python main.py
 ```
 
 The script invokes the LangGraph workflow and prints the final LLM-generated market analysis.
+It also prints the generated `thread_id`; keep that value if you want to inspect
+or resume the run later.
 
-To analyze a different symbol, edit the `symbols` list in `main.py`:
+To choose symbols from the command line:
 
-```python
-result = await graph.ainvoke(
-    {
-        "symbols": ["QQQ"],
-        "errors": [],
-    }
-)
+```bash
+uv run python main.py run --symbols SPY QQQ
 ```
 
 Each symbol maps to one Alpha Vantage `GLOBAL_QUOTE` API request.
+
+To make a run easy to resume, provide your own stable `thread_id`:
+
+```bash
+uv run python main.py run --thread-id market-2026-08-15 --symbols SPY QQQ
+```
+
+The `run` command refuses to start if that `thread_id` already has checkpointed
+state. Use `resume` for an existing interrupted run, or choose a new `thread_id`
+for a fresh run.
+
+If a run fails after one or more checkpoints have been saved, inspect the saved
+state:
+
+```bash
+uv run python main.py checkpoint --thread-id market-2026-08-15
+```
+
+Then resume from the next saved graph step:
+
+```bash
+uv run python main.py resume --thread-id market-2026-08-15
+```
+
+To confirm checkpoint persistence is active after a run, inspect the checkpoint
+tables:
+
+```bash
+docker compose exec postgres psql -U financial_agent -d financial_agent -c "\dt checkpoint*"
+docker compose exec postgres psql -U financial_agent -d financial_agent -c "select thread_id, checkpoint_id from checkpoints order by checkpoint_id desc limit 5;"
+```
 
 ## Tracing
 
