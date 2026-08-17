@@ -9,6 +9,18 @@ search = TavilySearch(
     topic="news",
 )
 
+DEFAULT_FINANCIAL_NEWS_QUERY = """
+Most important EU financial market news today.
+Focus on:
+Federal Reserve,
+inflation,
+interest rates,
+stock market,
+technology stocks,
+oil,
+macroeconomic data.
+"""
+
 
 def _summarize_news_output(news: list[dict]) -> dict:
     return {
@@ -32,19 +44,17 @@ def _summarize_news_output(news: list[dict]) -> dict:
     process_outputs=_summarize_news_output,
 )
 async def get_financial_news() -> list[dict]:
+    return await search_financial_news(DEFAULT_FINANCIAL_NEWS_QUERY)
 
-    query = """
-    Most important EU financial market news today.
-    Focus on:
-    Federal Reserve,
-    inflation,
-    interest rates,
-    stock market,
-    technology stocks,
-    oil,
-    macroeconomic data.
-    """
 
+@traceable(
+    name="Tavily Financial News Query",
+    run_type="tool",
+    tags=["news", "tavily"],
+    metadata={"provider": "tavily", "topic": "news"},
+    process_outputs=_summarize_news_output,
+)
+async def search_financial_news(query: str) -> list[dict]:
     result = await search.ainvoke({
         "query": query
     })

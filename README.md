@@ -1,6 +1,6 @@
 # Financial Intelligent Agent
 
-Financial Intelligent Agent is an async Python research assistant that combines market quotes, financial news, and an LLM analysis step into a single LangGraph workflow. It is designed to produce a short market research brief from recent quote data and news context.
+Financial Intelligent Agent is an async Python research assistant built with `deepagents.create_deep_agent`. It combines market quotes, iterative financial-news research, reflection, and structured LLM synthesis in a checkpointed LangGraph workflow.
 
 The current entry point analyzes one broad market proxy to stay within strict Alpha Vantage rate limits:
 
@@ -13,32 +13,30 @@ The project helps collect and interpret market context without manually switchin
 ## Features
 
 - Fetches latest global quote data from Alpha Vantage with async HTTP calls. The default run uses one symbol, so it makes one Alpha Vantage request.
+- Uses `deepagents.create_deep_agent` for planning, tool use, reflection, subagent-capable execution, and structured final output.
 - Collects recent financial market news with Tavily search using async LangChain calls.
-- Runs a LangGraph pipeline with separate nodes for market data, news, and analysis.
-- Uses OpenAI through async `langchain-openai` calls for the final market research analysis.
-- Tracks data collection errors in graph state so missing or failed data is visible to the analysis step.
+- Exposes Alpha Vantage quote lookup, Tavily news search, and Markdown report saving as agent tools.
+- Uses OpenAI through the Deep Agents model interface for final structured synthesis.
+- Persists agent state with LangGraph's Postgres checkpointer so interrupted runs can resume.
 - Validates Alpha Vantage responses with Pydantic models.
 - Applies a small request delay before Alpha Vantage calls to reduce rate-limit pressure.
 
 ## How It Works
 
-The workflow is defined in `app/graph.py`:
+The Deep Agent is defined in `app/deep_agent.py` and compiled in `app/graph.py`.
+It receives a market-brief task, then uses these domain tools:
 
-1. `prepare_market_data`
-   Initializes the pending-symbol queue.
+1. `get_market_quote`
+   Fetches the latest Alpha Vantage global quote for one ticker symbol.
 
-2. `fetch_market_data`
-   Retrieves quote data for one pending symbol using Alpha Vantage. The graph
-   loops through this node until all symbols are complete, creating a checkpoint
-   after each symbol.
+2. `search_market_news`
+   Runs a targeted Tavily financial-news search.
 
-3. `fetch_news`
-   Searches for recent financial market news focused on macroeconomic data, interest rates, technology stocks, oil, inflation, and market-moving events.
+3. `save_market_report`
+   Saves the final Markdown report under `output/`.
 
-4. `analyze_market`
-   Sends the collected market data, news, and any collection errors to an OpenAI chat model and asks for a structured market analysis.
-
-The graph state is represented by `MarketState` in `app/state.py`.
+The agent is instructed to gather quote data, run targeted news searches, reflect
+on evidence gaps, save the report, and return a structured `DeepMarketBrief`.
 
 The graph uses LangGraph's Postgres checkpointer. Checkpoints are stored in the
 database configured by `DATABASE_URL`, keyed by the `thread_id` passed in the
@@ -55,7 +53,9 @@ graph config.
 │   ├── nodes
 │   │   ├── analysis.py
 │   │   ├── market.py
-│   │   └── news.py
+│   │   ├── news.py
+│   │   └── report.py
+│   ├── deep_agent.py
 │   ├── graph.py
 │   └── state.py
 ├── main.py
@@ -99,6 +99,7 @@ Fill in the required values:
 ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
 OPENAI_API_KEY=your_openai_key
 TAVILY_API_KEY=your_tavily_key
+DEEP_AGENT_MODEL=openai:gpt-5
 DATABASE_URL=postgresql://financial_agent:financial_agent_password@localhost:5432/financial_agent
 LANGSMITH_API_KEY=your_langsmith_key
 LANGSMITH_TRACING="true"
@@ -127,6 +128,12 @@ uv run python main.py run --symbols SPY QQQ
 ```
 
 Each symbol maps to one Alpha Vantage `GLOBAL_QUOTE` API request.
+
+To allow more or fewer research/reflection passes:
+
+```bash
+uv run python main.py run --symbols SPY QQQ --max-research-iterations 3
+```
 
 To make a run easy to resume, provide your own stable `thread_id`:
 
@@ -164,13 +171,14 @@ docker compose exec postgres psql -U financial_agent -d financial_agent -c "sele
 LangSmith tracing is added at the boundaries that are most useful for debugging and observability:
 
 - `Financial Agent Workflow` wraps the full graph invocation.
-- `Fetch Market Data Node` shows requested symbols, returned quote count, and collection errors.
+- Deep Agents traces the model reasoning, tool calls, and structured response.
+- `Deep Agent Market Quote Tool` traces quote lookups.
 - `Alpha Vantage Global Quote` traces each symbol quote request.
-- `Fetch News Node` shows news result counts and URLs.
-- `Tavily Financial News Search` traces the news provider call.
-- `Analyze Market Node` shows evidence counts and final analysis size.
+- `Deep Agent Financial News Tool` traces news-search tool calls.
+- `Tavily Financial News Query` traces each news provider call.
+- `Deep Agent Report Save Tool` traces report persistence.
 
-The OpenAI call is made through LangChain's async `ainvoke`, so when LangSmith tracing is enabled it can appear as a child model run under the analysis node.
+The Deep Agent is invoked through LangGraph's async `ainvoke`, so LangSmith can show model calls, tool calls, and checkpointed agent state under the workflow trace.
 
 ## Evaluations
 

@@ -82,6 +82,17 @@ def _build_report(state: dict) -> str:
     )
 
 
+def save_report_text(report: str, symbols: list[str]) -> str:
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    symbol_part = "-".join(symbols) or "market"
+    filename = f"market_brief_{_safe_filename_part(symbol_part)}_{timestamp}.md"
+    report_path = OUTPUT_DIR / filename
+    report_path.write_text(report, encoding="utf-8")
+    return str(report_path)
+
+
 @traceable(
     name="Write Market Report Node",
     run_type="chain",
@@ -90,16 +101,10 @@ def _build_report(state: dict) -> str:
     process_outputs=_summarize_report_outputs,
 )
 def write_market_report(state):
-    OUTPUT_DIR.mkdir(exist_ok=True)
-
     report = _build_report(state)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    symbols = "-".join(state.get("symbols", [])) or "market"
-    filename = f"market_brief_{_safe_filename_part(symbols)}_{timestamp}.md"
-    report_path = OUTPUT_DIR / filename
-    report_path.write_text(report, encoding="utf-8")
+    report_path = save_report_text(report, state.get("symbols", []))
 
     return {
         "report": report,
-        "report_path": str(report_path),
+        "report_path": report_path,
     }
